@@ -155,7 +155,21 @@ def _filter(heat, direction, val=0.1):
     # heat[heat > 1] = 1
     return heat
 
-def _topk(scores, K=20):
+def _topk_scores_inds(scores, K):
+    #yezheng: this depends on size of each images
+    # print("[kp_utils.py _topk_scores_inds] scores", scores.size())
+    # [kp_utils.py _topk_scores_inds] scores torch.Size([2, 80, 192, 96])
+    # [kp_utils.py _topk_scores_inds] scores torch.Size([2, 80, 128, 192])
+    batch, cat, height, width = scores.size()
+
+    topk_scores, topk_inds = torch.topk(scores.view(batch, -1), K)
+
+    topk_inds = topk_inds % (height * width)
+    # print("[kp_utils.py _topk_scores_inds] topk_scores", topk_scores.size())
+    # [kp_utils.py _topk_scores_inds] topk_scores torch.Size([2, 40])
+    return topk_scores, topk_inds
+
+def _topk_scores_clses_ys_xs(scores, K):
     batch, cat, height, width = scores.size()
 
     topk_scores, topk_inds = torch.topk(scores.view(batch, -1), K)
@@ -165,7 +179,7 @@ def _topk(scores, K=20):
     topk_inds = topk_inds % (height * width)
     topk_ys   = (topk_inds / width).int().float()
     topk_xs   = (topk_inds % width).int().float()
-    return topk_scores, topk_inds, topk_clses, topk_ys, topk_xs
+    return topk_scores , topk_clses, topk_ys, topk_xs
 
 def _exct_decode(
     t_heat, l_heat, b_heat, r_heat, ct_heat, 

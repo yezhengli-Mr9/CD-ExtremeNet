@@ -12,7 +12,7 @@ from .kp_utils import _sigmoid, _regr_loss, _neg_loss
 from .kp_utils import make_kp_layer, make_hg_layer #hg = hourglass
 from .kp_utils import make_merge_layer, make_inter_layer, make_cnv_layer
 from .kp_utils import _h_aggregate, _v_aggregate
-from .kp_utils import _nms, _topk, _gather_feat
+from .kp_utils import _nms, _topk_scores_inds, _topk_scores_clses_ys_xs, _gather_feat
 from utils.debugger import Debugger
 
 
@@ -85,6 +85,44 @@ class kp_module(nn.Module):
         if exkp_flag:print("[exkp.py kp_module forward] ret", ret.shape)
         if exkp_flag:print("[exkp.py kp_module forward]==========")
         return ret
+
+def yezheng_inds_lrtb(l_heat,r_heat,t_heat,b_heat,  kernel, K):
+    t_heat = torch.sigmoid(t_heat)
+    l_heat = torch.sigmoid(l_heat)
+    b_heat = torch.sigmoid(b_heat)
+    r_heat = torch.sigmoid(r_heat)
+    
+    # print("[kp_utils.py _exct_decode] aggr_weight", aggr_weight)
+    # kp_utils.py _exct_decode] aggr_weight 0.1
+    # #---------
+    # #yezheng: comment out
+    # # aggr_weight = 0 # yezheng: this is not important
+    # if aggr_weight > 0:
+    #     t_heat = _h_aggregate(t_heat, aggr_weight=aggr_weight)
+    #     l_heat = _v_aggregate(l_heat, aggr_weight=aggr_weight)
+    #     b_heat = _h_aggregate(b_heat, aggr_weight=aggr_weight)
+    #     r_heat = _v_aggregate(r_heat, aggr_weight=aggr_weight)
+    # #---------
+    # print("[kp_utils.py _exct_decode] kernel", kernel)
+    # [kp_utils.py _exct_decode] kernel 3
+    # perform nms on heatmaps
+    t_heat = _nms(t_heat, kernel=kernel)
+    l_heat = _nms(l_heat, kernel=kernel)
+    b_heat = _nms(b_heat, kernel=kernel)
+    r_heat = _nms(r_heat, kernel=kernel)
+    # #---------
+    # #yezheng: comment out
+    # t_heat[t_heat > 1] = 1
+    # l_heat[l_heat > 1] = 1
+    # b_heat[b_heat > 1] = 1
+    # r_heat[r_heat > 1] = 1
+    # #---------
+    # yezheng: what does this K mean?
+    t_scores, t_inds = _topk_scores_inds(t_heat, K=K)
+    l_scores, l_inds = _topk_scores_inds(l_heat, K=K)
+    b_scores, b_inds = _topk_scores_inds(b_heat, K=K)
+    r_scores, r_inds = _topk_scores_inds(r_heat, K=K)
+    return l_inds, r_inds, t_inds, b_inds
 
 class exkp(nn.Module):
     def __init__(
@@ -182,103 +220,7 @@ class exkp(nn.Module):
 
         self.relu = nn.ReLU(inplace=True)
 
-    # def _train(self, *xs):
-    #     # print("[exkp.py exkp _train] xs", len(xs))
-    #     image  = xs[0]
-
-    #     inter = self.pre(image)
-    #     outs  = []
-    #     layers = zip(
-    #         self.kps, self.cnvs,
-    #         self.t_heats, self.l_heats, self.b_heats, self.r_heats,
-    #         self.ct_heats,
-    #         self.t_regrs, self.l_regrs, self.b_regrs, self.r_regrs,
-    #     )
-    #     t_inds = xs[1] #t_tags in medical_extreme.py kp_detection(
-    #     l_inds = xs[2] 
-    #     b_inds = xs[3]
-    #     r_inds = xs[4]
-    #     for ind, layer in enumerate(layers):
-    #         kp_, cnv_          = layer[0:2]
-    #         t_heat_, l_heat_, b_heat_, r_heat_ = layer[2:6]
-    #         ct_heat_                           = layer[6]
-    #         t_regr_, l_regr_, b_regr_, r_regr_ = layer[7:11]
-
-    #         kp  = kp_(inter)
-    #         cnv = cnv_(kp)
-
-    #         t_heat, l_heat = t_heat_(cnv), l_heat_(cnv)
-    #         b_heat, r_heat = b_heat_(cnv), r_heat_(cnv)
-    #         ct_heat        = ct_heat_(cnv)
-
-    #         t_regr, l_regr = t_regr_(cnv), l_regr_(cnv)
-    #         b_regr, r_regr = b_regr_(cnv), r_regr_(cnv)
-
-    #         t_regr = _tranpose_and_gather_feat(t_regr, t_inds)
-    #         l_regr = _tranpose_and_gather_feat(l_regr, l_inds)
-    #         b_regr = _tranpose_and_gather_feat(b_regr, b_inds)
-    #         r_regr = _tranpose_and_gather_feat(r_regr, r_inds)
-
-    #         outs += [t_heat, l_heat, b_heat, r_heat, ct_heat, \
-    #                  t_regr, l_regr, b_regr, r_regr]
-
-    #         if ind < self.nstack - 1:
-    #             inter = self.inters_[ind](inter) + self.cnvs_[ind](cnv)
-    #             inter = self.relu(inter)
-    #             inter = self.inters[ind](inter)
-    #     # print("[exkp.py exkp _train] outs", len(outs),type(outs)) # 18 <class 'list'>
-    #     return outs
-
-    # def _test(self, *xs, **kwargs):
-    #     print("[exkp.py exkp _test] xs", len(xs))
-    #     for x in xs:
-    #         print("[exkp.py exkp _test] x", x.shape)
-
-    #     image = xs[0]
-
-    #     inter = self.pre(image)
-    #     outs  = []
-
-    #     layers = zip(
-    #         self.kps, self.cnvs,
-    #         self.t_heats, self.l_heats, self.b_heats, self.r_heats,
-    #         self.ct_heats,
-    #         self.t_regrs, self.l_regrs, self.b_regrs, self.r_regrs,
-    #     )
-    #     for ind, layer in enumerate(layers):
-    #         kp_, cnv_                          = layer[0:2]
-    #         t_heat_, l_heat_, b_heat_, r_heat_ = layer[2:6]
-    #         ct_heat_                           = layer[6]
-    #         t_regr_, l_regr_, b_regr_, r_regr_ = layer[7:11]
-
-    #         kp  = kp_(inter)
-    #         cnv = cnv_(kp)
-
-    #         if ind == self.nstack - 1:
-    #             t_heat, l_heat = t_heat_(cnv), l_heat_(cnv)
-    #             b_heat, r_heat = b_heat_(cnv), r_heat_(cnv)
-    #             ct_heat        = ct_heat_(cnv)
-
-    #             t_regr, l_regr = t_regr_(cnv), l_regr_(cnv)
-    #             b_regr, r_regr = b_regr_(cnv), r_regr_(cnv)
-
-    #             outs += [t_heat, l_heat, b_heat, r_heat, ct_heat,
-    #                      t_regr, l_regr, b_regr, r_regr]
-
-    #         if ind < self.nstack - 1:
-    #             inter = self.inters_[ind](inter) + self.cnvs_[ind](cnv)
-    #             inter = self.relu(inter)
-    #             inter = self.inters[ind](inter)
-    #     print("[exkp.py exkp _test] kwargs['debug']", kwargs['debug'], "kwargs", kwargs)
-    #     if kwargs['debug']:
-    #         _debug(image, t_heat, l_heat, b_heat, r_heat, ct_heat)
-    #     del kwargs['debug']
-    #     return self._decode(*outs[-9:], **kwargs)
-
-    # def forward(self, *xs, **kwargs):
-    #     if len(xs) > 1:
-    #         return self._train(*xs, **kwargs)
-    #     return self._test(*xs, **kwargs)
+    
 
     def forward(self, *xs, **kwargs):
         # print("[exkp.py exkp forward] xs", len(xs))
@@ -292,11 +234,6 @@ class exkp(nn.Module):
             self.ct_heats,
             self.t_regrs, self.l_regrs, self.b_regrs, self.r_regrs,
         )
-        if len(xs)>1: #yezheng: training procedure
-            t_inds = xs[1] #t_tags in medical_extreme.py kp_detection(
-            l_inds = xs[2] 
-            b_inds = xs[3]
-            r_inds = xs[4]
         for ind, layer in enumerate(layers):
             kp_, cnv_          = layer[0:2]
             t_heat_, l_heat_, b_heat_, r_heat_ = layer[2:6]
@@ -307,19 +244,25 @@ class exkp(nn.Module):
             cnv = cnv_(kp)
 
             if len(xs)>1 or ind == self.nstack - 1: 
-            #yezheng: training procedure or last layer of testing procedure
+                #yezheng: training procedure or last layer of testing procedure
                 t_heat, l_heat = t_heat_(cnv), l_heat_(cnv)
                 b_heat, r_heat = b_heat_(cnv), r_heat_(cnv)
                 ct_heat        = ct_heat_(cnv)
 
                 t_regr, l_regr = t_regr_(cnv), l_regr_(cnv)
                 b_regr, r_regr = b_regr_(cnv), r_regr_(cnv)
-
                 if len(xs)>1: #yezheng: training procedure
-                    t_regr = _tranpose_and_gather_feat(t_regr, t_inds)
-                    l_regr = _tranpose_and_gather_feat(l_regr, l_inds)
-                    b_regr = _tranpose_and_gather_feat(b_regr, b_inds)
-                    r_regr = _tranpose_and_gather_feat(r_regr, r_inds)
+                    t_inds = xs[1] #t_tags in medical_extreme.py kp_detection(
+                    l_inds = xs[2] 
+                    b_inds = xs[3]
+                    r_inds = xs[4]
+                else:
+                    l_inds, r_inds, t_inds, b_inds = yezheng_inds_lrtb(l_heat, r_heat, t_heat, b_heat, kernel = 3, K = 40)
+                
+                t_regr = _tranpose_and_gather_feat(t_regr, t_inds)
+                l_regr = _tranpose_and_gather_feat(l_regr, l_inds)
+                b_regr = _tranpose_and_gather_feat(b_regr, b_inds)
+                r_regr = _tranpose_and_gather_feat(r_regr, r_inds)
                 outs += [t_heat, l_heat, b_heat, r_heat, ct_heat, 
                      t_regr, l_regr, b_regr, r_regr]
 
@@ -336,6 +279,7 @@ class exkp(nn.Module):
                 _debug(image, t_heat, l_heat, b_heat, r_heat, ct_heat)
             del kwargs['debug']
             #yezheng: _exct_decode( from kp_utils.py
+            t_heat, l_heat, b_heat, r_heat, ct_heat, t_regr, l_regr, b_regr, r_regr = outs[-9:]
             K=40
             kernel=3
             aggr_weight=0.1
@@ -383,10 +327,10 @@ class exkp(nn.Module):
             # r_heat[r_heat > 1] = 1
             # #---------
             # yezheng: what does this K mean?
-            t_scores, t_inds, t_clses, t_ys, t_xs = _topk(t_heat, K=K)
-            l_scores, l_inds, l_clses, l_ys, l_xs = _topk(l_heat, K=K)
-            b_scores, b_inds, b_clses, b_ys, b_xs = _topk(b_heat, K=K)
-            r_scores, r_inds, r_clses, r_ys, r_xs = _topk(r_heat, K=K)
+            t_scores, t_clses, t_ys, t_xs = _topk_scores_clses_ys_xs(t_heat, K=K)
+            l_scores, l_clses, l_ys, l_xs = _topk_scores_clses_ys_xs(l_heat, K=K)
+            b_scores, b_clses, b_ys, b_xs = _topk_scores_clses_ys_xs(b_heat, K=K)
+            r_scores, r_clses, r_ys, r_xs = _topk_scores_clses_ys_xs(r_heat, K=K)
             #yezheng: these ares just creating meshes
             t_ys = t_ys.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
             t_xs = t_xs.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
@@ -454,13 +398,9 @@ class exkp(nn.Module):
             scores, inds = torch.topk(scores, num_dets)
             scores = scores.unsqueeze(2)
 
-            t_regr = _tranpose_and_gather_feat(t_regr, t_inds)
             t_regr = t_regr.view(batch, K, 1, 1, 1, 2)
-            l_regr = _tranpose_and_gather_feat(l_regr, l_inds)
             l_regr = l_regr.view(batch, 1, K, 1, 1, 2)
-            b_regr = _tranpose_and_gather_feat(b_regr, b_inds)
             b_regr = b_regr.view(batch, 1, 1, K, 1, 2)
-            r_regr = _tranpose_and_gather_feat(r_regr, r_inds)
             r_regr = r_regr.view(batch, 1, 1, 1, K, 2)
 
             t_xs = t_xs + t_regr[..., 0]
