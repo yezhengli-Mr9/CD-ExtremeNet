@@ -1,0 +1,14 @@
+*DS_Store*
+tools/vis*
+cache
+data
+data/
+cache/
+results/
+images/
+images
+*.swp
+out_images/*
+out_*/*
+*.pyc
+*.o*
