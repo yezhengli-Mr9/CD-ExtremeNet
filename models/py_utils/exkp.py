@@ -12,7 +12,7 @@ from .kp_utils import _sigmoid, _regr_loss, _neg_loss
 from .kp_utils import make_kp_layer, make_hg_layer #hg = hourglass
 from .kp_utils import make_merge_layer, make_inter_layer, make_cnv_layer
 from .kp_utils import _h_aggregate, _v_aggregate
-from .kp_utils import _nms, _topk_scores_inds, _topk_scores_clses_ys_xs, _gather_feat
+from .kp_utils import _nms, _topk_heats_inds, _topk_heats_clses_ys_xs, _gather_feat
 from utils.debugger import Debugger
 
 
@@ -118,10 +118,10 @@ def yezheng_inds_lrtb(l_heat,r_heat,t_heat,b_heat,  kernel, K):
     # r_heat[r_heat > 1] = 1
     # #---------
     # yezheng: what does this K mean?
-    t_scores, t_inds = _topk_scores_inds(t_heat, K=K)
-    l_scores, l_inds = _topk_scores_inds(l_heat, K=K)
-    b_scores, b_inds = _topk_scores_inds(b_heat, K=K)
-    r_scores, r_inds = _topk_scores_inds(r_heat, K=K)
+    _, t_inds = _topk_heats_inds(t_heat, K=K)
+    _, l_inds = _topk_heats_inds(l_heat, K=K)
+    _, b_inds = _topk_heats_inds(b_heat, K=K)
+    _, r_inds = _topk_heats_inds(r_heat, K=K)
     return l_inds, r_inds, t_inds, b_inds
 
 class exkp(nn.Module):
@@ -296,11 +296,14 @@ class exkp(nn.Module):
             r_heat = _filter(r_heat, direction='v', val=filter_kernel)
             '''
             
-            t_heat = torch.sigmoid(t_heat)
-            l_heat = torch.sigmoid(l_heat)
-            b_heat = torch.sigmoid(b_heat)
-            r_heat = torch.sigmoid(r_heat)
-            ct_heat = torch.sigmoid(ct_heat)
+            # t_heat = torch.sigmoid(t_heat)
+            # l_heat = torch.sigmoid(l_heat)
+            # b_heat = torch.sigmoid(b_heat)
+            # r_heat = torch.sigmoid(r_heat)
+            # ct_heat = torch.sigmoid(ct_heat)
+
+
+
             # print("[kp_utils.py _exct_decode] aggr_weight", aggr_weight)
             # kp_utils.py _exct_decode] aggr_weight 0.1
             # #---------
@@ -327,10 +330,13 @@ class exkp(nn.Module):
             # r_heat[r_heat > 1] = 1
             # #---------
             # yezheng: what does this K mean?
-            t_scores, t_clses, t_ys, t_xs = _topk_scores_clses_ys_xs(t_heat, K=K)
-            l_scores, l_clses, l_ys, l_xs = _topk_scores_clses_ys_xs(l_heat, K=K)
-            b_scores, b_clses, b_ys, b_xs = _topk_scores_clses_ys_xs(b_heat, K=K)
-            r_scores, r_clses, r_ys, r_xs = _topk_scores_clses_ys_xs(r_heat, K=K)
+            t_heat, t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_heat, K=K)
+            l_heat, l_clses, l_ys, l_xs = _topk_heats_clses_ys_xs(l_heat, K=K)
+            b_heat, b_clses, b_ys, b_xs = _topk_heats_clses_ys_xs(b_heat, K=K)
+            r_heat, r_clses, r_ys, r_xs = _topk_heats_clses_ys_xs(r_heat, K=K)
+
+
+
             #yezheng: these ares just creating meshes
             t_ys = t_ys.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
             t_xs = t_xs.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
@@ -350,18 +356,12 @@ class exkp(nn.Module):
             ct_inds = t_clses.long() * (height * width) + box_ct_ys * width + box_ct_xs
             ct_inds = ct_inds.view(batch, -1)
             ct_heat = ct_heat.view(batch, -1, 1)
-            ct_scores = _gather_feat(ct_heat, ct_inds)
 
-            t_scores = t_scores.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
-            l_scores = l_scores.view(batch, 1, K, 1, 1).expand(batch, K, K, K, K)
-            b_scores = b_scores.view(batch, 1, 1, K, 1).expand(batch, K, K, K, K)
-            r_scores = r_scores.view(batch, 1, 1, 1, K).expand(batch, K, K, K, K)
-            ct_scores = ct_scores.view(batch, K, K, K, K)
-            scores    = (t_scores + l_scores + b_scores + r_scores + 2 * ct_scores) / 6
-
+            
+            
             # reject boxes based on classes
             cls_inds = (t_clses != l_clses) + (t_clses != b_clses) + \
-                       (t_clses != r_clses)
+                       (t_clses != r_clses) #yezheng: this has not exhaust all pairs
             cls_inds = (cls_inds > 0)
 
             top_inds  = (t_ys > l_ys) + (t_ys > b_ys) + (t_ys > r_ys)
@@ -372,12 +372,35 @@ class exkp(nn.Module):
             bottom_inds = (bottom_inds > 0)
             right_inds  = (r_xs < t_xs) + (r_xs < l_xs) + (r_xs < b_xs)
             right_inds = (right_inds > 0)
+            #yezheng: this is the latest position I should put torch.sigmoid
+            t_scores = torch.sigmoid(t_heat)
+            l_scores = torch.sigmoid(l_heat)
+            b_scores = torch.sigmoid(b_heat)
+            r_scores = torch.sigmoid(r_heat)
+            ct_scores = torch.sigmoid(ct_heat)
+            del t_heat
+            del l_heat
+            del b_heat
+            del r_heat
+            del ct_heat
+            ct_scores = _gather_feat(ct_scores, ct_inds)
+            # yezheng: why I need to expand them?
+            t_scores = t_scores.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
+            l_scores = l_scores.view(batch, 1, K, 1, 1).expand(batch, K, K, K, K)
+            b_scores = b_scores.view(batch, 1, 1, K, 1).expand(batch, K, K, K, K)
+            r_scores = r_scores.view(batch, 1, 1, 1, K).expand(batch, K, K, K, K)
+            ct_scores = ct_scores.view(batch, K, K, K, K)
+            scores    = (t_scores + l_scores + b_scores + r_scores + 2 * ct_scores) / 6
+            
 
             sc_inds = (t_scores < scores_thresh) + (l_scores < scores_thresh) + \
                       (b_scores < scores_thresh) + (r_scores < scores_thresh) + \
                       (ct_scores < center_thresh)
             sc_inds = (sc_inds > 0)
             
+            # print("[exkp.py  exkp forward] sc_inds", sc_inds.shape) 
+            # #dtype=torch.uint8)
+            # [exkp.py  exkp forward] sc_inds torch.Size([2, 40, 40, 40, 40])
             '''
             scores[sc_inds]   = -1
             scores[cls_inds]  = -1
@@ -439,8 +462,8 @@ class exkp(nn.Module):
 
             detections = torch.cat([bboxes, scores, t_xs, t_ys, l_xs, l_ys, 
                                     b_xs, b_ys, r_xs, r_ys, clses], dim=2)
-            print("[kp_utils.py _exct_decode] detections", detections.shape)
-
+            # print("[kp_utils.py _exct_decode] detections", detections.shape)
+            # [kp_utils.py _exct_decode] detections torch.Size([2, 1000, 14])
             return detections
             #return self._decode(*outs[-9:], **kwargs)
 

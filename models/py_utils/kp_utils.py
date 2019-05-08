@@ -155,31 +155,32 @@ def _filter(heat, direction, val=0.1):
     # heat[heat > 1] = 1
     return heat
 
-def _topk_scores_inds(scores, K):
+def _topk_heats_inds(heats, K):
     #yezheng: this depends on size of each images
-    # print("[kp_utils.py _topk_scores_inds] scores", scores.size())
+    # print("[kp_utils.py _topk_scores_inds] heats", heats.size())
     # [kp_utils.py _topk_scores_inds] scores torch.Size([2, 80, 192, 96])
     # [kp_utils.py _topk_scores_inds] scores torch.Size([2, 80, 128, 192])
-    batch, cat, height, width = scores.size()
-
-    topk_scores, topk_inds = torch.topk(scores.view(batch, -1), K)
-
+    batch, cat, height, width = heats.size()
+#     print("[kp_utils.py _topk_scores_inds] scores.view(batch, -1)", scores.view(batch, -1).size())
+#     [kp_utils.py _topk_scores_inds] scores torch.Size([2, 80, 128, 192])
+# [kp_utils.py _topk_scores_inds] scores.view(batch, -1) torch.Size([2, 1966080])
+    topk_heats, topk_inds = torch.topk(heats.view(batch, -1), K)
+    # print("[kp_utils.py _topk_scores_inds] topk_inds", torch.max(topk_inds))
     topk_inds = topk_inds % (height * width)
     # print("[kp_utils.py _topk_scores_inds] topk_scores", topk_scores.size())
     # [kp_utils.py _topk_scores_inds] topk_scores torch.Size([2, 40])
-    return topk_scores, topk_inds
+    return topk_heats, topk_inds
 
-def _topk_scores_clses_ys_xs(scores, K):
-    batch, cat, height, width = scores.size()
-
-    topk_scores, topk_inds = torch.topk(scores.view(batch, -1), K)
+def _topk_heats_clses_ys_xs(heats, K ):
+    batch, cat, height, width = heats.size()
+    topk_heats, topk_inds = torch.topk(torch.sigmoid(heats.view(batch, -1) ), K)
 
     topk_clses = (topk_inds / (height * width)).int()
 
     topk_inds = topk_inds % (height * width)
     topk_ys   = (topk_inds / width).int().float()
     topk_xs   = (topk_inds % width).int().float()
-    return topk_scores , topk_clses, topk_ys, topk_xs
+    return topk_heats , topk_clses, topk_ys, topk_xs
 
 def _exct_decode(
     t_heat, l_heat, b_heat, r_heat, ct_heat, 
