@@ -405,21 +405,26 @@ class exkp(nn.Module):
             # reject boxes based on classes
             cls_inds = (t_clses != l_clses) + (t_clses != b_clses) + \
                        (t_clses != r_clses)
-            cls_inds = (cls_inds > 0)
+            cls_inds = (cls_inds > 0).float()
 
-            top_inds  = (t_ys > l_ys) + (t_ys > b_ys) + (t_ys > r_ys)
-            top_inds = (top_inds > 0)
-            left_inds  = (l_xs > t_xs) + (l_xs > b_xs) + (l_xs > r_xs)
-            left_inds = (left_inds > 0)
-            bottom_inds  = (b_ys < t_ys) + (b_ys < l_ys) + (b_ys < r_ys)
-            bottom_inds = (bottom_inds > 0)
-            right_inds  = (r_xs < t_xs) + (r_xs < l_xs) + (r_xs < b_xs)
-            right_inds = (right_inds > 0)
+            top_inds  = (t_ys > l_ys).float() + (t_ys > b_ys).float() + (t_ys > r_ys).float()
+            # top_inds = (top_inds > 0).float()
+            top_inds = top_inds * torch.sigmoid(t_heat)/6
+            left_inds  = (l_xs > t_xs).float() + (l_xs > b_xs).float() + (l_xs > r_xs).float()
+            # left_inds = (left_inds > 0).float()
+            left_inds = left_inds* torch.sigmoid(l_heat)/6
+            bottom_inds  = (b_ys < t_ys).float() + (b_ys < l_ys).float() + (b_ys < r_ys).float()
+            # bottom_inds = (bottom_inds > 0).float()
+            bottom_inds = bottom_inds* torch.sigmoid(b_heat)/6
+            right_inds  = (r_xs < t_xs).float() + (r_xs < l_xs).float() + (r_xs < b_xs).float()
+            # right_inds = (right_inds > 0).float()
+            right_inds = right_inds* torch.sigmoid(r_heat)/6
 
-            sc_inds = (t_heat < heat_thresh) + (l_heat < heat_thresh) + \
-                      (b_heat < heat_thresh) + (r_heat < heat_thresh) + \
-                      (ct_heat < center_heat_thresh)
-            sc_inds = (sc_inds > 0)
+            sc_inds = (t_heat < heat_thresh).float() + (l_heat < heat_thresh).float() + \
+                      (b_heat < heat_thresh).float() + (r_heat < heat_thresh).float() + \
+                      (ct_heat < center_heat_thresh).float()
+            # sc_inds = (sc_inds > 0).float()
+            sc_inds =sc_inds * torch.sigmoid(ct_heat)/3
             
             
             #-------
@@ -448,8 +453,11 @@ class exkp(nn.Module):
             bboxes = bboxes.view(batch, -1, 4)
 
             #---------
-            # yezheng: this is the last position I can put scores
-            scores    = (torch.sigmoid(t_heat) + torch.sigmoid(l_heat) + torch.sigmoid(b_heat) + torch.sigmoid(r_heat) + 2 * torch.sigmoid(ct_heat)) / 6
+            # yezheng: this is the latest position I can put scores
+            scores = (torch.sigmoid(t_heat) + torch.sigmoid(l_heat) + torch.sigmoid(b_heat) + torch.sigmoid(r_heat) + 2 * torch.sigmoid(ct_heat)) / 6
+            # scores = (torch.sigmoid(t_heat) + torch.sigmoid(l_heat) + torch.sigmoid(b_heat) + torch.sigmoid(r_heat) + torch.sigmoid(ct_heat))/5
+             #yezheng: torch.zeros(scores.shape)
+            #torch.ones(scores.shape)#yezheng: I simply cannot set it like this!! -- too many items
             '''
             scores[sc_inds]   = -1
             scores[cls_inds]  = -1
@@ -470,7 +478,7 @@ class exkp(nn.Module):
             del b_heat
             del r_heat
             del ct_heat
-            
+            #yezheng: these are much more important than ```_h_aggregate``` and ```_nms```
             scores = scores - sc_inds.float()
             scores = scores - cls_inds.float()
             scores = scores - top_inds.float()
