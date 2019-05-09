@@ -312,18 +312,7 @@ class exkp(nn.Module):
             r_heat = _filter(r_heat, direction='v', val=filter_kernel)
             '''
 
-            t_scores = torch.sigmoid(t_heat)
-            l_scores = torch.sigmoid(l_heat)
-            b_scores = torch.sigmoid(b_heat)
-            r_scores = torch.sigmoid(r_heat)
-            ct_scores = torch.sigmoid(ct_heat)
             
-
-            del t_heat
-            del l_heat
-            del b_heat
-            del r_heat
-            del ct_heat
            
             # if aggr_weight > 0:
             #     t_heat = _h_aggregate(t_heat, aggr_weight=aggr_weight)
@@ -344,13 +333,12 @@ class exkp(nn.Module):
             # r_heat[r_heat > 1] = 1
 
 
-            t_scores,  t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_scores, K=K)
-            l_scores,  l_clses, l_ys, l_xs = _topk_heats_clses_ys_xs(l_scores, K=K)
-            b_scores,  b_clses, b_ys, b_xs = _topk_heats_clses_ys_xs(b_scores, K=K)
-            r_scores,  r_clses, r_ys, r_xs = _topk_heats_clses_ys_xs(r_scores, K=K)
+            t_heat,  t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_heat, K=K)
+            l_heat,  l_clses, l_ys, l_xs = _topk_heats_clses_ys_xs(l_heat, K=K)
+            b_heat,  b_clses, b_ys, b_xs = _topk_heats_clses_ys_xs(b_heat, K=K)
+            r_heat,  r_clses, r_ys, r_xs = _topk_heats_clses_ys_xs(r_heat, K=K)
 
             
-
 
 
             t_ys = t_ys.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
