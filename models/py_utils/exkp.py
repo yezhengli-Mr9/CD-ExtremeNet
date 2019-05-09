@@ -356,30 +356,18 @@ class exkp(nn.Module):
             # b_heat[b_heat > 1] = 1
             # r_heat[r_heat > 1] = 1
 
-            t_scores = torch.sigmoid(t_heat)
-            l_scores = torch.sigmoid(l_heat)
-            b_scores = torch.sigmoid(b_heat)
-            r_scores = torch.sigmoid(r_heat)
-            ct_scores = torch.sigmoid(ct_heat)
-            
-            del t_heat
-            del l_heat
-            del b_heat
-            del r_heat
-            del ct_heat
+
 
            
             # these two does not have much difference
-            t_scores,  t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_scores, K=K)
-            l_scores,  l_clses, l_ys, l_xs = _topk_heats_clses_ys_xs(l_scores, K=K)
-            b_scores,  b_clses, b_ys, b_xs = _topk_heats_clses_ys_xs(b_scores, K=K)
-            r_scores,  r_clses, r_ys, r_xs = _topk_heats_clses_ys_xs(r_scores, K=K)
+            t_heat,  t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_heat, K=K)
+            l_heat,  l_clses, l_ys, l_xs = _topk_heats_clses_ys_xs(l_heat, K=K)
+            b_heat,  b_clses, b_ys, b_xs = _topk_heats_clses_ys_xs(b_heat, K=K)
+            r_heat,  r_clses, r_ys, r_xs = _topk_heats_clses_ys_xs(r_heat, K=K)
             # t_heat, t_inds, t_clses, t_ys, t_xs = _topk(t_heat, K=K)
             # l_heat, l_inds, l_clses, l_ys, l_xs = _topk(l_heat, K=K)
             # b_heat, b_inds, b_clses, b_ys, b_xs = _topk(b_heat, K=K)
             # r_heat, r_inds, r_clses, r_ys, r_xs = _topk(r_heat, K=K)
-            
-
             
 
 
@@ -400,15 +388,21 @@ class exkp(nn.Module):
             box_ct_ys = ((t_ys + b_ys + 0.5) / 2).long()
             ct_inds = t_clses.long() * (height * width) + box_ct_ys * width + box_ct_xs
             ct_inds = ct_inds.view(batch, -1)
-            ct_scores = ct_scores.view(batch, -1, 1)
-            ct_scores = _gather_feat(ct_scores, ct_inds)
+            ct_heat = ct_heat.view(batch, -1, 1)
+            ct_heat = _gather_feat(ct_heat, ct_inds)
 
-            t_scores = t_scores.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
-            l_scores = l_scores.view(batch, 1, K, 1, 1).expand(batch, K, K, K, K)
-            b_scores = b_scores.view(batch, 1, 1, K, 1).expand(batch, K, K, K, K)
-            r_scores = r_scores.view(batch, 1, 1, 1, K).expand(batch, K, K, K, K)
-            ct_scores = ct_scores.view(batch, K, K, K, K)
-            scores    = (t_scores + l_scores + b_scores + r_scores + 2 * ct_scores) / 6
+            t_heat = t_heat.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
+            l_heat = l_heat.view(batch, 1, K, 1, 1).expand(batch, K, K, K, K)
+            b_heat = b_heat.view(batch, 1, 1, K, 1).expand(batch, K, K, K, K)
+            r_heat = r_heat.view(batch, 1, 1, 1, K).expand(batch, K, K, K, K)
+            ct_heat = ct_heat.view(batch, K, K, K, K)
+
+
+
+            
+            del ct_heat
+            
+            scores    = (torch.sigmoid(t_heat) + torch.sigmoid(l_heat) + torch.sigmoid(b_heat) + torch.sigmoid(r_heat) + 2 * torch.sigmoid(ct_heat)) / 6
 
             # reject boxes based on classes
             cls_inds = (t_clses != l_clses) + (t_clses != b_clses) + \
@@ -424,8 +418,8 @@ class exkp(nn.Module):
             right_inds  = (r_xs < t_xs) + (r_xs < l_xs) + (r_xs < b_xs)
             right_inds = (right_inds > 0)
 
-            sc_inds = (t_scores < scores_thresh) + (l_scores < scores_thresh) + \
-                      (b_scores < scores_thresh) + (r_scores < scores_thresh) + \
+            sc_inds = (t_heat < scores_thresh) + (l_scores < scores_thresh) + \
+                      (b_heat < scores_thresh) + (r_scores < scores_thresh) + \
                       (ct_scores < center_thresh)
             sc_inds = (sc_inds > 0)
             
@@ -437,6 +431,17 @@ class exkp(nn.Module):
             scores[bottom_inds]  = -1
             scores[right_inds] = -1
             '''
+
+            t_scores = torch.sigmoid(t_heat)
+            l_scores = torch.sigmoid(l_heat)
+            b_scores = torch.sigmoid(b_heat)
+            r_scores = torch.sigmoid(r_heat)
+            ct_scores = torch.sigmoid(ct_heat)
+            
+            del t_heat
+            del l_heat
+            del b_heat
+            del r_heat
             scores = scores - sc_inds.float()
             scores = scores - cls_inds.float()
             scores = scores - top_inds.float()
