@@ -297,7 +297,13 @@ class exkp(nn.Module):
             center_heat_thresh = -math.log(1/center_thresh-1)
             num_dets=1000#1000#yezheng: what does this mean?
             batch, cat, height, width = t_heat.size()
-    
+
+
+
+        
+
+
+
             ''' 
             filter_kernel = 0.1
             t_heat = _filter(t_heat, direction='h', val=filter_kernel)
@@ -306,12 +312,19 @@ class exkp(nn.Module):
             r_heat = _filter(r_heat, direction='v', val=filter_kernel)
             '''
 
-            t_heat = torch.sigmoid(t_heat)
-            l_heat = torch.sigmoid(l_heat)
-            b_heat = torch.sigmoid(b_heat)
-            r_heat = torch.sigmoid(r_heat)
-            ct_heat = torch.sigmoid(ct_heat)
+            t_scores = torch.sigmoid(t_heat)
+            l_scores = torch.sigmoid(l_heat)
+            b_scores = torch.sigmoid(b_heat)
+            r_scores = torch.sigmoid(r_heat)
+            ct_scores = torch.sigmoid(ct_heat)
             
+
+            del t_heat
+            del l_heat
+            del b_heat
+            del r_heat
+            del ct_heat
+           
             # if aggr_weight > 0:
             #     t_heat = _h_aggregate(t_heat, aggr_weight=aggr_weight)
             #     l_heat = _v_aggregate(l_heat, aggr_weight=aggr_weight)
@@ -320,20 +333,24 @@ class exkp(nn.Module):
             
             
             # perform nms on heatmaps
-            t_heat = _nms(t_heat, kernel=kernel)
-            l_heat = _nms(l_heat, kernel=kernel)
-            b_heat = _nms(b_heat, kernel=kernel)
-            r_heat = _nms(r_heat, kernel=kernel)
+            t_scores = _nms(t_scores, kernel=kernel)
+            l_scores = _nms(l_scores, kernel=kernel)
+            b_scores = _nms(b_scores, kernel=kernel)
+            r_scores = _nms(r_scores, kernel=kernel)
             
             # t_heat[t_heat > 1] = 1
             # l_heat[l_heat > 1] = 1
             # b_heat[b_heat > 1] = 1
             # r_heat[r_heat > 1] = 1
 
-            t_scores, t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_heat, K=K)
-            l_scores, l_clses, l_ys, l_xs = _topk_heats_clses_ys_xs(l_heat, K=K)
-            b_scores, b_clses, b_ys, b_xs = _topk_heats_clses_ys_xs(b_heat, K=K)
-            r_scores, r_clses, r_ys, r_xs = _topk_heats_clses_ys_xs(r_heat, K=K)
+            t_scores, t_inds, t_clses, t_ys, t_xs = _topk(t_scores, K=K)
+            l_scores, l_inds, l_clses, l_ys, l_xs = _topk(l_scores, K=K)
+            b_scores, b_inds, b_clses, b_ys, b_xs = _topk(b_scores, K=K)
+            r_scores, r_inds, r_clses, r_ys, r_xs = _topk(r_scores, K=K)
+
+            
+
+
 
             t_ys = t_ys.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
             t_xs = t_xs.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
@@ -352,8 +369,8 @@ class exkp(nn.Module):
             box_ct_ys = ((t_ys + b_ys + 0.5) / 2).long()
             ct_inds = t_clses.long() * (height * width) + box_ct_ys * width + box_ct_xs
             ct_inds = ct_inds.view(batch, -1)
-            ct_heat = ct_heat.view(batch, -1, 1)
-            ct_scores = _gather_feat(ct_heat, ct_inds)
+            ct_scores = ct_scores.view(batch, -1, 1)
+            ct_scores = _gather_feat(ct_scores, ct_inds)
 
             t_scores = t_scores.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
             l_scores = l_scores.view(batch, 1, K, 1, 1).expand(batch, K, K, K, K)

@@ -167,7 +167,7 @@ def _topk(scores, K):
     topk_ys   = (topk_inds / width).int().float()
     topk_xs   = (topk_inds % width).int().float()
     return topk_scores, topk_inds, topk_clses, topk_ys, topk_xs
-    
+
 def _topk_heats_inds(heats, K):
     #yezheng: this depends on size of each images
     # print("[kp_utils.py _topk_scores_inds] heats", heats.size())
@@ -186,7 +186,7 @@ def _topk_heats_inds(heats, K):
 
 def _topk_heats_clses_ys_xs(heats, K ):
     batch, cat, height, width = heats.size()
-    topk_heats, topk_inds = torch.topk(torch.sigmoid(heats.view(batch, -1) ), K)
+    topk_heats, topk_inds = torch.topk(heats.view(batch, -1) , K)
 
     topk_clses = (topk_inds / (height * width)).int()
 
