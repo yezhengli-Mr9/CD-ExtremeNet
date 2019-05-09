@@ -343,10 +343,10 @@ class exkp(nn.Module):
             # b_heat[b_heat > 1] = 1
             # r_heat[r_heat > 1] = 1
 
-            t_scores, t_inds, t_clses, t_ys, t_xs = _topk(t_scores, K=K)
-            l_scores, l_inds, l_clses, l_ys, l_xs = _topk(l_scores, K=K)
-            b_scores, b_inds, b_clses, b_ys, b_xs = _topk(b_scores, K=K)
-            r_scores, r_inds, r_clses, r_ys, r_xs = _topk(r_scores, K=K)
+            t_scores,  t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_scores, K=K)
+            l_scores,  l_clses, l_ys, l_xs = _topk_heats_clses_ys_xs(l_scores, K=K)
+            b_scores,  b_clses, b_ys, b_xs = _topk_heats_clses_ys_xs(b_scores, K=K)
+            r_scores,  r_clses, r_ys, r_xs = _topk_heats_clses_ys_xs(r_scores, K=K)
 
             
 

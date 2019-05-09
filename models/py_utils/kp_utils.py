@@ -51,7 +51,7 @@ def _gather_feat(feat, ind, mask=None):
         feat = feat.view(-1, dim)
     return feat
 
-def _nms(heat, kernel=1): #yezheng: _nms is not the thing mentioned in 
+def _nms(heat, kernel): #yezheng: _nms is not the thing mentioned in 
 # cd $ExtremeNet_ROOT/external
 # make
 # ?
