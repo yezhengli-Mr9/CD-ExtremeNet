@@ -51,6 +51,7 @@ class NetworkFactory(object):
         # [NetworkFactory __init__] module_file: models.medical_ExtremeNet
         nnet_module = importlib.import_module(module_file)
         # print("[NetworkFactory __init__] nnet_module", nnet_module)
+        # [NetworkFactory __init__] nnet_module <module 'models.ExtremeNet' from '/Users/yezheng/github/CD-ExtremeNet/models/ExtremeNet.py'>
         self.model   = DummyModule(nnet_module.model(db))
         self.loss    = nnet_module.loss # yezheng: this is last line in models/ExtremeNet.py
         self.network = Network(self.model, self.loss)

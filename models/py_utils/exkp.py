@@ -1,7 +1,7 @@
 #-----
 #yezheng: this file (exkp.py) is in ExtremeNet but not CornerNet -- it inherits kp.py in CornerNet
 import numpy as np
-import torch
+import torch, math
 import torch.nn as nn
 
 from .utils import convolution, residual
@@ -87,10 +87,6 @@ class kp_module(nn.Module):
         return ret
 
 def yezheng_inds_lrtb(l_heat,r_heat,t_heat,b_heat,  kernel, K):
-    t_heat = torch.sigmoid(t_heat)
-    l_heat = torch.sigmoid(l_heat)
-    b_heat = torch.sigmoid(b_heat)
-    r_heat = torch.sigmoid(r_heat)
     
     # print("[kp_utils.py _exct_decode] aggr_weight", aggr_weight)
     # kp_utils.py _exct_decode] aggr_weight 0.1
@@ -284,8 +280,10 @@ class exkp(nn.Module):
             kernel=3
             aggr_weight=0.1
             scores_thresh=0.1
+            heat_thresh = -math.log(1/scores_thresh-1)
             center_thresh=0.1
-            num_dets=1000
+            center_heat_thresh = -math.log(1/center_thresh-1)
+            num_dets=1000#1000#yezheng: what does this mean?
             batch, cat, height, width = t_heat.size()
     
             ''' 
@@ -296,11 +294,11 @@ class exkp(nn.Module):
             r_heat = _filter(r_heat, direction='v', val=filter_kernel)
             '''
             
-            # t_heat = torch.sigmoid(t_heat)
-            # l_heat = torch.sigmoid(l_heat)
-            # b_heat = torch.sigmoid(b_heat)
-            # r_heat = torch.sigmoid(r_heat)
-            # ct_heat = torch.sigmoid(ct_heat)
+            t_heat = torch.sigmoid(t_heat)
+            l_heat = torch.sigmoid(l_heat)
+            b_heat = torch.sigmoid(b_heat)
+            r_heat = torch.sigmoid(r_heat)
+            ct_heat = torch.sigmoid(ct_heat)
 
 
 
@@ -309,11 +307,11 @@ class exkp(nn.Module):
             # #---------
             # #yezheng: comment out
             # # aggr_weight = 0 # yezheng: this is not important
-            # if aggr_weight > 0:
-            #     t_heat = _h_aggregate(t_heat, aggr_weight=aggr_weight)
-            #     l_heat = _v_aggregate(l_heat, aggr_weight=aggr_weight)
-            #     b_heat = _h_aggregate(b_heat, aggr_weight=aggr_weight)
-            #     r_heat = _v_aggregate(r_heat, aggr_weight=aggr_weight)
+            if aggr_weight > 0:
+                t_heat = -torch.log(1/_h_aggregate(torch.sigmoid(t_heat), aggr_weight=aggr_weight)-1)
+                l_heat = -torch.log(1/_v_aggregate(torch.sigmoid(l_heat), aggr_weight=aggr_weight)-1)
+                b_heat = -torch.log(1/_h_aggregate(torch.sigmoid(b_heat), aggr_weight=aggr_weight)-1)
+                r_heat = -torch.log(1/_v_aggregate(torch.sigmoid(r_heat), aggr_weight=aggr_weight)-1)
             # #---------
             # print("[kp_utils.py _exct_decode] kernel", kernel)
             # [kp_utils.py _exct_decode] kernel 3
@@ -324,10 +322,10 @@ class exkp(nn.Module):
             r_heat = _nms(r_heat, kernel=kernel)
             # #---------
             # #yezheng: comment out
-            # t_heat[t_heat > 1] = 1
-            # l_heat[l_heat > 1] = 1
-            # b_heat[b_heat > 1] = 1
-            # r_heat[r_heat > 1] = 1
+            t_heat[t_heat > 1] = 1
+            l_heat[l_heat > 1] = 1
+            b_heat[b_heat > 1] = 1
+            r_heat[r_heat > 1] = 1
             # #---------
             # yezheng: what does this K mean?
             t_heat, t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_heat, K=K)
@@ -372,30 +370,21 @@ class exkp(nn.Module):
             bottom_inds = (bottom_inds > 0)
             right_inds  = (r_xs < t_xs) + (r_xs < l_xs) + (r_xs < b_xs)
             right_inds = (right_inds > 0)
-            #yezheng: this is the latest position I should put torch.sigmoid
-            t_scores = torch.sigmoid(t_heat)
-            l_scores = torch.sigmoid(l_heat)
-            b_scores = torch.sigmoid(b_heat)
-            r_scores = torch.sigmoid(r_heat)
-            ct_scores = torch.sigmoid(ct_heat)
-            del t_heat
-            del l_heat
-            del b_heat
-            del r_heat
-            del ct_heat
-            ct_scores = _gather_feat(ct_scores, ct_inds)
-            # yezheng: why I need to expand them?
-            t_scores = t_scores.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
-            l_scores = l_scores.view(batch, 1, K, 1, 1).expand(batch, K, K, K, K)
-            b_scores = b_scores.view(batch, 1, 1, K, 1).expand(batch, K, K, K, K)
-            r_scores = r_scores.view(batch, 1, 1, 1, K).expand(batch, K, K, K, K)
-            ct_scores = ct_scores.view(batch, K, K, K, K)
-            scores    = (t_scores + l_scores + b_scores + r_scores + 2 * ct_scores) / 6
             
+            ct_heat = _gather_feat(ct_heat, ct_inds)
 
-            sc_inds = (t_scores < scores_thresh) + (l_scores < scores_thresh) + \
-                      (b_scores < scores_thresh) + (r_scores < scores_thresh) + \
-                      (ct_scores < center_thresh)
+
+            
+            # yezheng: why I need to expand them?
+            t_heat = t_heat.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
+            l_heat = l_heat.view(batch, 1, K, 1, 1).expand(batch, K, K, K, K)
+            b_heat = b_heat.view(batch, 1, 1, K, 1).expand(batch, K, K, K, K)
+            r_heat = r_heat.view(batch, 1, 1, 1, K).expand(batch, K, K, K, K)
+            ct_heat = ct_heat.view(batch, K, K, K, K)
+
+            sc_inds = (t_heat < heat_thresh) + (l_heat < scores_thresh) + \
+                      (b_heat < scores_thresh) + (r_heat < scores_thresh) + \
+                      (ct_heat < center_heat_thresh)
             sc_inds = (sc_inds > 0)
             
             # print("[exkp.py  exkp forward] sc_inds", sc_inds.shape) 
@@ -409,6 +398,9 @@ class exkp(nn.Module):
             scores[bottom_inds]  = -1
             scores[right_inds] = -1
             '''
+             #yezheng: this is the latest position I should put torch.sigmoid
+           
+            scores    = (torch.sigmoid(t_heat) + torch.sigmoid(l_heat) + torch.sigmoid(b_heat) + torch.sigmoid(r_heat) + 2 * torch.sigmoid(ct_heat)) / 6
             scores = scores - sc_inds.float()
             scores = scores - cls_inds.float()
             scores = scores - top_inds.float()
@@ -419,7 +411,10 @@ class exkp(nn.Module):
 
             scores = scores.view(batch, -1)
             scores, inds = torch.topk(scores, num_dets)
+
             scores = scores.unsqueeze(2)
+            # print("t_regr", t_regr.shape)
+            # t_regr torch.Size([2, 40, 2])
 
             t_regr = t_regr.view(batch, K, 1, 1, 1, 2)
             l_regr = l_regr.view(batch, 1, K, 1, 1, 2)
@@ -459,7 +454,7 @@ class exkp(nn.Module):
             r_ys = r_ys.contiguous().view(batch, -1, 1)
             r_ys = _gather_feat(r_ys, inds).float()
 
-
+            
             detections = torch.cat([bboxes, scores, t_xs, t_ys, l_xs, l_ys, 
                                     b_xs, b_ys, r_xs, r_ys, clses], dim=2)
             # print("[kp_utils.py _exct_decode] detections", detections.shape)

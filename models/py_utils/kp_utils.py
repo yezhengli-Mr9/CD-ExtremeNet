@@ -155,6 +155,18 @@ def _filter(heat, direction, val=0.1):
     # heat[heat > 1] = 1
     return heat
 
+
+def _topk(scores, K):
+    batch, cat, height, width = scores.size()
+
+    topk_scores, topk_inds = torch.topk(scores.view(batch, -1), K)
+
+    topk_clses = (topk_inds / (height * width)).int()
+
+    topk_inds = topk_inds % (height * width)
+    topk_ys   = (topk_inds / width).int().float()
+    topk_xs   = (topk_inds % width).int().float()
+    return topk_scores, topk_inds, topk_clses, topk_ys, topk_xs
 def _topk_heats_inds(heats, K):
     #yezheng: this depends on size of each images
     # print("[kp_utils.py _topk_scores_inds] heats", heats.size())
