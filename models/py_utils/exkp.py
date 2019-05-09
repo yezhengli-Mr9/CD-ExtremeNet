@@ -314,11 +314,12 @@ class exkp(nn.Module):
 
             
            
-            # if aggr_weight > 0:
-            #     t_heat = _h_aggregate(t_heat, aggr_weight=aggr_weight)
-            #     l_heat = _v_aggregate(l_heat, aggr_weight=aggr_weight)
-            #     b_heat = _h_aggregate(b_heat, aggr_weight=aggr_weight)
-            #     r_heat = _v_aggregate(r_heat, aggr_weight=aggr_weight)
+            if aggr_weight > 0:#check 000000500043_out.jpg to see differences
+                t_heat = -torch.log(1/_h_aggregate(torch.sigmoid(t_heat), aggr_weight=aggr_weight)-1)
+                l_heat = -torch.log(1/_v_aggregate(torch.sigmoid(l_heat), aggr_weight=aggr_weight)-1)
+                b_heat = -torch.log(1/_h_aggregate(torch.sigmoid(b_heat), aggr_weight=aggr_weight)-1)
+                r_heat = -torch.log(1/_v_aggregate(torch.sigmoid(r_heat), aggr_weight=aggr_weight)-1)
+            
             
             #yezheng: I can do not have to do nms, but anyway, I cannot do nms before sigmoid
             # perform nms on heatmaps
@@ -332,13 +333,29 @@ class exkp(nn.Module):
             # b_heat[b_heat > 1] = 1
             # r_heat[r_heat > 1] = 1
 
-
+            # these two does not have much difference
             t_heat,  t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_heat, K=K)
             l_heat,  l_clses, l_ys, l_xs = _topk_heats_clses_ys_xs(l_heat, K=K)
             b_heat,  b_clses, b_ys, b_xs = _topk_heats_clses_ys_xs(b_heat, K=K)
             r_heat,  r_clses, r_ys, r_xs = _topk_heats_clses_ys_xs(r_heat, K=K)
-
+            # t_heat, t_inds, t_clses, t_ys, t_xs = _topk(t_heat, K=K)
+            # l_heat, l_inds, l_clses, l_ys, l_xs = _topk(l_heat, K=K)
+            # b_heat, b_inds, b_clses, b_ys, b_xs = _topk(b_heat, K=K)
+            # r_heat, r_inds, r_clses, r_ys, r_xs = _topk(r_heat, K=K)
             
+
+            t_scores = torch.sigmoid(t_heat)
+            l_scores = torch.sigmoid(l_heat)
+            b_scores = torch.sigmoid(b_heat)
+            r_scores = torch.sigmoid(r_heat)
+            ct_scores = torch.sigmoid(ct_heat)
+            
+
+            del t_heat
+            del l_heat
+            del b_heat
+            del r_heat
+            del ct_heat
 
 
             t_ys = t_ys.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
