@@ -331,17 +331,18 @@ class exkp(nn.Module):
             #     b_heat = _h_aggregate(b_heat, aggr_weight=aggr_weight)
             #     r_heat = _v_aggregate(r_heat, aggr_weight=aggr_weight)
             
-            
+            #yezheng: I can do not have to do nms, but anyway, I cannot do nms before sigmoid
             # perform nms on heatmaps
-            t_scores = _nms(t_scores, kernel=kernel)
-            l_scores = _nms(l_scores, kernel=kernel)
-            b_scores = _nms(b_scores, kernel=kernel)
-            r_scores = _nms(r_scores, kernel=kernel)
+            # t_scores = _nms(t_scores, kernel=kernel)
+            # l_scores = _nms(l_scores, kernel=kernel)
+            # b_scores = _nms(b_scores, kernel=kernel)
+            # r_scores = _nms(r_scores, kernel=kernel)
             
             # t_heat[t_heat > 1] = 1
             # l_heat[l_heat > 1] = 1
             # b_heat[b_heat > 1] = 1
             # r_heat[r_heat > 1] = 1
+
 
             t_scores,  t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_scores, K=K)
             l_scores,  l_clses, l_ys, l_xs = _topk_heats_clses_ys_xs(l_scores, K=K)
