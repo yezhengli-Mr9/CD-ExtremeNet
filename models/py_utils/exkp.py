@@ -98,10 +98,10 @@ def yezheng_inds_lrtb(l_heat,r_heat,t_heat,b_heat,  kernel#, aggr_weight
     r_heat = _filter(r_heat, direction='v', val=filter_kernel)
     '''
 
-    t_heat = torch.sigmoid(t_heat)
-    l_heat = torch.sigmoid(l_heat)
-    b_heat = torch.sigmoid(b_heat)
-    r_heat = torch.sigmoid(r_heat)
+    # t_heat = torch.sigmoid(t_heat)
+    # l_heat = torch.sigmoid(l_heat)
+    # b_heat = torch.sigmoid(b_heat)
+    # r_heat = torch.sigmoid(r_heat)
     
     # if aggr_weight > 0:
     #     t_heat = _h_aggregate(t_heat, aggr_weight=aggr_weight)
@@ -121,10 +121,10 @@ def yezheng_inds_lrtb(l_heat,r_heat,t_heat,b_heat,  kernel#, aggr_weight
     b_heat[b_heat > 1] = 1
     r_heat[r_heat > 1] = 1
 
-    t_scores, t_inds, t_clses, t_ys, t_xs = _topk(t_heat, K=K)
-    l_scores, l_inds, l_clses, l_ys, l_xs = _topk(l_heat, K=K)
-    b_scores, b_inds, b_clses, b_ys, b_xs = _topk(b_heat, K=K)
-    r_scores, r_inds, r_clses, r_ys, r_xs = _topk(r_heat, K=K)
+    _, t_inds = _topk_heats_inds(t_heat, K=K)
+    _, l_inds = _topk_heats_inds(l_heat, K=K)
+    _, b_inds = _topk_heats_inds(b_heat, K=K)
+    _, r_inds = _topk_heats_inds(r_heat, K=K)
     return l_inds, r_inds, t_inds, b_inds
 
 class exkp(nn.Module):
