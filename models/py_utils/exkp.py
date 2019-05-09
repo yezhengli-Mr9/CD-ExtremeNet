@@ -129,7 +129,8 @@ def yezheng_inds_lrtb(l_heat,r_heat,t_heat,b_heat,  kernel#, aggr_weight
 
 
 def inv_sigmoid(T):
-    ret = -torch.log(1/T-1)
+    print("[inv_sigmoid] torch.max(T)", torch.max(T))
+    ret = -torch.log(torch.reciprocal(T)-1)
     return ret 
 class exkp(nn.Module):
     def __init__(
@@ -299,7 +300,7 @@ class exkp(nn.Module):
             heat_thresh = -math.log(1/scores_thresh-1)
             center_thresh=0.1
             center_heat_thresh = -math.log(1/center_thresh-1)
-            num_dets=1000#1000#yezheng: what does this mean?
+            num_dets = 1000 #1000#yezheng: what does this mean?
             batch, cat, height, width = t_heat.size()
 
 
@@ -316,6 +317,8 @@ class exkp(nn.Module):
             r_heat = _filter(r_heat, direction='v', val=filter_kernel)
             '''
 
+
+            
             
            
             if aggr_weight > 0:#check 000000500043_out.jpg to see differences
@@ -329,7 +332,29 @@ class exkp(nn.Module):
             #     l_scores = _v_aggregate(l_scores, aggr_weight=aggr_weight)
             #     b_scores = _h_aggregate(b_scores, aggr_weight=aggr_weight)
             #     r_scores = _v_aggregate(r_scores, aggr_weight=aggr_weight)
+            # print("torch.sum(torch.abs(t_heat - t_scores))", torch.sum(torch.abs(t_heat - t_scores)))
             
+            
+            
+
+
+            #yezheng: I can do not have to do nms, but anyway, I cannot do nms before sigmoid
+            # perform nms on heatmaps
+            #check 000000500043_out.jpg to see differences
+            t_heat = inv_sigmoid(_nms(torch.sigmoid(t_heat), kernel=kernel))
+            l_heat = inv_sigmoid(_nms(torch.sigmoid(l_heat), kernel=kernel))
+            b_heat = inv_sigmoid(_nms(torch.sigmoid(b_heat), kernel=kernel))
+            r_heat = inv_sigmoid(_nms(torch.sigmoid(r_heat), kernel=kernel))
+
+            # t_scores = _nms(t_scores, kernel=kernel)
+            # l_scores = _nms(l_scores, kernel=kernel)
+            # b_scores = _nms(b_scores, kernel=kernel)
+            # r_scores = _nms(r_scores, kernel=kernel)
+            
+            # t_heat[t_heat > 1] = 1
+            # l_heat[l_heat > 1] = 1
+            # b_heat[b_heat > 1] = 1
+            # r_heat[r_heat > 1] = 1
 
             t_scores = torch.sigmoid(t_heat)
             l_scores = torch.sigmoid(l_heat)
@@ -337,31 +362,11 @@ class exkp(nn.Module):
             r_scores = torch.sigmoid(r_heat)
             ct_scores = torch.sigmoid(ct_heat)
             
-
             del t_heat
             del l_heat
             del b_heat
             del r_heat
             del ct_heat
-
-
-            #yezheng: I can do not have to do nms, but anyway, I cannot do nms before sigmoid
-            # perform nms on heatmaps
-            #check 000000500043_out.jpg to see differences
-            # t_heat = inv_sigmoid(_nms(torch.sigmoid(t_heat), kernel=kernel))
-            # l_heat = inv_sigmoid(_nms(torch.sigmoid(l_heat), kernel=kernel))
-            # b_heat = inv_sigmoid(_nms(torch.sigmoid(b_heat), kernel=kernel))
-            # r_heat = inv_sigmoid(_nms(torch.sigmoid(r_heat), kernel=kernel))
-
-            t_scores = _nms(t_scores, kernel=kernel)
-            l_scores = _nms(l_scores, kernel=kernel)
-            b_scores = _nms(b_scores, kernel=kernel)
-            r_scores = _nms(r_scores, kernel=kernel)
-            
-            # t_heat[t_heat > 1] = 1
-            # l_heat[l_heat > 1] = 1
-            # b_heat[b_heat > 1] = 1
-            # r_heat[r_heat > 1] = 1
 
            
             # these two does not have much difference

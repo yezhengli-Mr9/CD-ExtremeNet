@@ -72,7 +72,10 @@ def _left_aggregate(heat):
     for i in range(1, heat.shape[1]):
         inds = (heat[:, i] >= heat[:, i -1])
         ret[:, i] += ret[:, i - 1] * inds.float()
-    return (ret - heat).reshape(shape) 
+    _ret = (ret - heat).reshape(shape) 
+    del ret
+    _ret = _ret/ torch.max(_ret)#yezheng's normalization
+    return _ret
 
 def _right_aggregate(heat):
     '''
@@ -84,7 +87,11 @@ def _right_aggregate(heat):
     for i in range(heat.shape[1] - 2, -1, -1):
         inds = (heat[:, i] >= heat[:, i +1])
         ret[:, i] += ret[:, i + 1] * inds.float()
-    return (ret - heat).reshape(shape) 
+    _ret = (ret - heat).reshape(shape) 
+    del ret
+    _ret = _ret/ torch.max(_ret)#yezheng's normalization
+    return _ret 
+
 
 def _top_aggregate(heat):
     '''
@@ -97,7 +104,10 @@ def _top_aggregate(heat):
     for i in range(1, heat.shape[1]):
         inds = (heat[:, i] >= heat[:, i - 1])
         ret[:, i] += ret[:, i - 1] * inds.float()
-    return (ret - heat).reshape(shape).transpose(3, 2)
+    _ret = (ret - heat).reshape(shape).transpose(3, 2)
+    del ret
+    _ret = _ret/ torch.max(_ret)#yezheng's normalization
+    return _ret
 
 def _bottom_aggregate(heat):
     '''
@@ -110,15 +120,18 @@ def _bottom_aggregate(heat):
     for i in range(heat.shape[1] - 2, -1, -1):
         inds = (heat[:, i] >= heat[:, i + 1])
         ret[:, i] += ret[:, i + 1] * inds.float()
-    return (ret - heat).reshape(shape).transpose(3, 2)
+    _ret = (ret - heat).reshape(shape).transpose(3, 2)
+    del ret
+    _ret = _ret/ torch.max(_ret)#yezheng's normalization
+    return _ret
 
-def _h_aggregate(heat, aggr_weight=0.1):
-    return aggr_weight * _left_aggregate(heat) + \
-           aggr_weight * _right_aggregate(heat) + heat
+def _h_aggregate(score, aggr_weight=0.1):
+    return aggr_weight * _left_aggregate(score) + \
+           aggr_weight * _right_aggregate(score) + (1- 2*aggr_weight)*score
 
-def _v_aggregate(heat, aggr_weight=0.1):
-    return aggr_weight * _top_aggregate(heat) + \
-           aggr_weight * _bottom_aggregate(heat) + heat
+def _v_aggregate(score, aggr_weight=0.1):
+    return aggr_weight * _top_aggregate(score) + \
+           aggr_weight * _bottom_aggregate(score) + (1- 2*aggr_weight)*score
 
 def _tranpose_and_gather_feat(feat, ind):
     # print("[kp_utils.py _tranpose_and_gather_feat] feat (before)", feat.shape,feat)
