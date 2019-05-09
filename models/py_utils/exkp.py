@@ -116,10 +116,10 @@ def yezheng_inds_lrtb(l_heat,r_heat,t_heat,b_heat,  kernel#, aggr_weight
     b_heat = _nms(b_heat, kernel=kernel)
     r_heat = _nms(r_heat, kernel=kernel)
     
-    t_heat[t_heat > 1] = 1
-    l_heat[l_heat > 1] = 1
-    b_heat[b_heat > 1] = 1
-    r_heat[r_heat > 1] = 1
+    # t_heat[t_heat > 1] = 1
+    # l_heat[l_heat > 1] = 1
+    # b_heat[b_heat > 1] = 1
+    # r_heat[r_heat > 1] = 1
 
     _, t_inds = _topk_heats_inds(t_heat, K=K)
     _, l_inds = _topk_heats_inds(l_heat, K=K)
@@ -325,15 +325,15 @@ class exkp(nn.Module):
             b_heat = _nms(b_heat, kernel=kernel)
             r_heat = _nms(r_heat, kernel=kernel)
             
-            t_heat[t_heat > 1] = 1
-            l_heat[l_heat > 1] = 1
-            b_heat[b_heat > 1] = 1
-            r_heat[r_heat > 1] = 1
+            # t_heat[t_heat > 1] = 1
+            # l_heat[l_heat > 1] = 1
+            # b_heat[b_heat > 1] = 1
+            # r_heat[r_heat > 1] = 1
 
-            t_scores, t_inds, t_clses, t_ys, t_xs = _topk(t_heat, K=K)
-            l_scores, l_inds, l_clses, l_ys, l_xs = _topk(l_heat, K=K)
-            b_scores, b_inds, b_clses, b_ys, b_xs = _topk(b_heat, K=K)
-            r_scores, r_inds, r_clses, r_ys, r_xs = _topk(r_heat, K=K)
+            t_scores, t_clses, t_ys, t_xs = _topk_heats_clses_ys_xs(t_heat, K=K)
+            l_scores, l_clses, l_ys, l_xs = _topk_heats_clses_ys_xs(l_heat, K=K)
+            b_scores, b_clses, b_ys, b_xs = _topk_heats_clses_ys_xs(b_heat, K=K)
+            r_scores, r_clses, r_ys, r_xs = _topk_heats_clses_ys_xs(r_heat, K=K)
 
             t_ys = t_ys.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
             t_xs = t_xs.view(batch, K, 1, 1, 1).expand(batch, K, K, K, K)
