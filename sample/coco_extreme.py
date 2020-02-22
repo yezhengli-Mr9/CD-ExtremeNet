@@ -40,6 +40,7 @@ def _clip_detections_pts(image, detections, extreme_pts):
     return detections, extreme_pts
 
 def kp_detection(db, k_ind, data_aug, debug):
+    print("=========== [coco_extreme] kp_detection===========")
     data_rng   = system_configs.data_rng
     batch_size = system_configs.batch_size
 
